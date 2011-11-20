@@ -1,9 +1,23 @@
 #ifndef AGO_H
 #define AGO_H
 
-int alib_thread_init(int max_conc);
-int alib_go(void (*func)(void *), void *arg);
-int alib_thread_wait();
-int alib_thread_end();
+#include <memory>
+
+class ago
+{
+public:
+	explicit ago(int max_conc);
+	virtual ~ago();
+
+	void go(void (*f)(void*), void *arg);
+	void wait();
+
+private:
+	struct ago_impl;
+	std::shared_ptr<ago_impl> impl;
+
+	static void static_idle(ago *obj);
+	void idle(void);
+};
 
 #endif	/* AGO_H */

@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 11
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ago", "ago.vcxproj", "{4B446ED5-ADB4-42F4-8597-704636DA3D7B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ago_test", "ago_test.vcxproj", "{45781D94-D2FC-4499-8DCD-171DBD54431B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{45781D94-D2FC-4499-8DCD-171DBD54431B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{45781D94-D2FC-4499-8DCD-171DBD54431B}.Debug|Win32.Build.0 = Debug|Win32
+		{45781D94-D2FC-4499-8DCD-171DBD54431B}.Release|Win32.ActiveCfg = Release|Win32
+		{45781D94-D2FC-4499-8DCD-171DBD54431B}.Release|Win32.Build.0 = Release|Win32
+		{4B446ED5-ADB4-42F4-8597-704636DA3D7B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4B446ED5-ADB4-42F4-8597-704636DA3D7B}.Debug|Win32.Build.0 = Debug|Win32
+		{4B446ED5-ADB4-42F4-8597-704636DA3D7B}.Release|Win32.ActiveCfg = Release|Win32
+		{4B446ED5-ADB4-42F4-8597-704636DA3D7B}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
