@@ -96,9 +96,8 @@ ago::ago(int max_conc)
 /* waits until all threads are idle */
 void ago::wait()
 {
-	impl->idle_mutex.lock();
-	impl->idle_condition.wait(std::unique_lock<std::mutex>(impl->idle_mutex));
-	impl->idle_mutex.unlock();
+	std::unique_lock<std::mutex> lock(impl->idle_mutex);
+	impl->idle_condition.wait(lock);
 }
 
 /** Closes up all running threads.
@@ -112,9 +111,7 @@ ago::~ago()
 	/* tell all threads to quit */
 	impl->ago_quit = true;
 
-	impl->run_mutex.lock();
 	impl->run_condition.notify_all();
-	impl->run_mutex.unlock();
 
 	/* wait for all threads to quit */
 	auto t = begin(impl->thread_list);
@@ -144,9 +141,7 @@ void ago::go(void (*func)(void *), void *arg)
 	impl->arg_list.push(arg);
 	impl->func_mutex.unlock();
 
-	impl->run_mutex.lock();
 	impl->run_condition.notify_one();
-	impl->run_mutex.unlock();
 }
 
 /** Idling function.
@@ -165,9 +160,10 @@ void ago::idle()
 	/* idling loop */
 	while(1){
 
-		impl->run_mutex.lock();
-		impl->run_condition.wait(std::unique_lock<std::mutex>(impl->run_mutex));
-		impl->run_mutex.unlock();
+		{
+		std::unique_lock<std::mutex> lock(impl->run_mutex);
+		impl->run_condition.wait(lock);
+		}
 
 		/* are we running functions or quitting? */
 		if(impl->ago_quit) return;
@@ -189,11 +185,9 @@ void ago::idle()
 		
 		/* decrement the number of running functions, and signal if the
 		 * number is zero */
-		impl->idle_mutex.lock();
 		if(funcListEmpty)
 		{
 			impl->idle_condition.notify_all();
 		}
-		impl->idle_mutex.unlock();
 	}
 };
