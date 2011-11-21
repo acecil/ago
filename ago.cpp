@@ -65,10 +65,7 @@ struct ago::ago_impl
 	std::mutex func_mutex;
 
 	/* these help with alib_thread_wait */
-	std::mutex idle_mutex;
 	std::condition_variable idle_condition;
-
-	std::mutex run_mutex;
 	std::condition_variable run_condition;
 };
 
@@ -96,8 +93,8 @@ ago::ago(int max_conc)
 /* waits until all threads are idle */
 void ago::wait()
 {
-	std::unique_lock<std::mutex> lock(impl->idle_mutex);
-	impl->idle_condition.wait(lock);
+	std::unique_lock<std::mutex> lock(impl->func_mutex);
+	impl->idle_condition.wait(lock, [&]{ return impl->func_list.empty(); });
 }
 
 /** Closes up all running threads.
@@ -136,10 +133,11 @@ ago::~ago()
 void ago::go(void (*func)(void *), void *arg)
 {		
 	/* add function to stack */
-	impl->func_mutex.lock();
-	impl->func_list.push(func);
-	impl->arg_list.push(arg);
-	impl->func_mutex.unlock();
+	{
+		std::lock_guard<std::mutex> lock(impl->func_mutex);
+		impl->func_list.push(func);
+		impl->arg_list.push(arg);
+	}
 
 	impl->run_condition.notify_one();
 }
@@ -160,10 +158,9 @@ void ago::idle()
 	/* idling loop */
 	while(1){
 
-		{
-		std::unique_lock<std::mutex> lock(impl->run_mutex);
-		impl->run_condition.wait(lock);
-		}
+		std::unique_lock<std::mutex> lock(impl->func_mutex);
+		impl->run_condition.wait(lock, 
+			[&]{ return (!impl->func_list.empty() || impl->ago_quit); });
 
 		/* are we running functions or quitting? */
 		if(impl->ago_quit) return;
@@ -172,20 +169,17 @@ void ago::idle()
 		/* this must be done in a mutex to make sure two threads don't
 			* start to run the same function, if alib_go is called rapidly
 			* in succession */
-		impl->func_mutex.lock();
 		func = impl->func_list.front();
 		impl->func_list.pop();
 		arg  = impl->arg_list.front();
 		impl->arg_list.pop();
-		bool funcListEmpty = impl->func_list.empty();
-		impl->func_mutex.unlock();
 		
 		/* now run the function */
 		func(arg);
 		
 		/* decrement the number of running functions, and signal if the
 		 * number is zero */
-		if(funcListEmpty)
+		if(impl->func_list.empty())
 		{
 			impl->idle_condition.notify_all();
 		}
