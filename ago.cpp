@@ -1,5 +1,5 @@
-/* lightweight goroutine-like threads for C */
-/* by Alireza Nejati */
+/* lightweight goroutine-like threads for C++ */
+/* by Andrew Gascoyne-Cecil based on C implementation by Alireza Nejati */
 
 /* This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,29 +18,21 @@
  */
 
 /**The way this is done is we have several idle threads that don't do
- * anything until alib_go() is called. We have a semaphore that counts
+ * anything until ago::go() is called. We have a mutex protected queue that counts
  * how many *functions* there are waiting to be called, not how many
- * *threads* that are running idle. Each time alib_go() is called, the
- * semaphore count is decreased which causes one thread to run, pop the
- * next function off the function stack, and run it. */
+ * *threads* that are running idle. Each time ago::go() is called, the
+ * oldest function in the queue is run in the next available thread. */
 
 /* If all threads are currently busy, it waits until a thread becomes
  * free */
  
-/* All accesses to the function stack are done in a mutex. Since they
+/* All accesses to the function queue are done in a mutex. Since they
  * are usually just reads or writes, they return very quickly */
 
 /* We must provide a way for the main thread to wait until all functions
- * have been executed. This is alib_thread_wait().
+ * have been executed. This is ago::wait().
  * The mechanism behind it is condition variables.
- * Now, the proper implementation of sem_getvalue() would return the
- * number of threads waiting on the semaphore. Unfortunately, in linux
- * just 0 is returned, necessitating that we keep our own variable.
- * This is nrunning. */
-/* We (atomically) increment nrunning whenever a new function is
- * dispatched, and (again, atomically) whenever the function completes.
- * Thus, when it becomes 0 we are guaranteed that all threads are idle
- * and no functions are in the pipeline, waiting to be executed. */
+ */
 
 #include <thread>
 #include <list>
@@ -58,32 +50,27 @@ struct ago::ago_impl
 	/* list of thread pointers */
 	std::list<std::thread*> thread_list;
 	
-	/* stack of function pointers.
-	 * By having one for each thread, there is no danger */
+	/* queue of function pointers */
 	std::queue<void (*)(void*)> func_list;
 	std::queue<void*> arg_list;
 	std::mutex func_mutex;
 
-	/* these help with alib_thread_wait */
+	/* these help with ago::wait */
 	std::condition_variable idle_condition;
 	std::condition_variable run_condition;
 };
 
 /**
- *  Initializes an alib_thread session. Need to call this before calling
- *  alib_go().
-	max_conc: number of concurrent threads to run.
-	Return value: number of actual threads created.
-	Negative if error.
-	Before returning, waits until all threads have been created.
-	(If that isn't done, we risk posting to the semaphore before anyone
-	 waits for it).
-*/
+ *  ago constructor
+ *	max_conc: number of concurrent threads to run.
+ */
 ago::ago(int max_conc)
 	: impl(new ago_impl)
 {
 	impl->ago_quit = false;
-		
+	
+
+	/* Create required number of idle threads and add to thread list. */
 	for(int i = 0; i < max_conc; ++i)
 	{
 		impl->thread_list.push_back(new std::thread(&ago::static_idle, this));
@@ -93,21 +80,21 @@ ago::ago(int max_conc)
 /* waits until all threads are idle */
 void ago::wait()
 {
+	/* Atomically wait until the function list is empty. */
 	std::unique_lock<std::mutex> lock(impl->func_mutex);
 	impl->idle_condition.wait(lock, [&]{ return impl->func_list.empty(); });
 }
 
-/** Closes up all running threads.
+/** Destructor. Closes up all running threads.
  * If was in the middle of running functions, wait till they end.
- * Subsequent calls to alib_go will fail.
- * Can restart again with alib_thread_init()
- * Returns 0 if successfull, otherwise error code.
+ * Can restart again by creating a new ago object.
  */
 ago::~ago()
 {	
 	/* tell all threads to quit */
 	impl->ago_quit = true;
 
+	/* Notify all threads to stop waiting. */
 	impl->run_condition.notify_all();
 
 	/* wait for all threads to quit */
@@ -127,8 +114,6 @@ ago::~ago()
 }
 
 /** Execute function func in parallel.
- * Returns 0 if successfull, error otherwise
- * (maybe due to exceeding maximum thread count.)
  * */
 void ago::go(void (*func)(void *), void *arg)
 {		
@@ -139,6 +124,7 @@ void ago::go(void (*func)(void *), void *arg)
 		impl->arg_list.push(arg);
 	}
 
+	/* Tell once thread to wake up and execute the function. */
 	impl->run_condition.notify_one();
 }
 
@@ -158,28 +144,42 @@ void ago::idle()
 	/* idling loop */
 	while(1){
 
-		std::unique_lock<std::mutex> lock(impl->func_mutex);
-		impl->run_condition.wait(lock, 
-			[&]{ return (!impl->func_list.empty() || impl->ago_quit); });
+		bool func_list_empty = false;
+		{
+			/* Atomically wait until a function is added to the list, or
+			 * the quit variable is set.
+			 */
+			std::unique_lock<std::mutex> lock(impl->func_mutex);
+			impl->run_condition.wait(lock, 
+				[&]{ return (!impl->func_list.empty() || impl->ago_quit); });
 
-		/* are we running functions or quitting? */
-		if(impl->ago_quit) return;
+			/* are we running functions or quitting? */
+			if(impl->ago_quit) return;
 		
-		/* we have been assigned. Get the details of the function. */
-		/* this must be done in a mutex to make sure two threads don't
-			* start to run the same function, if alib_go is called rapidly
-			* in succession */
-		func = impl->func_list.front();
-		impl->func_list.pop();
-		arg  = impl->arg_list.front();
-		impl->arg_list.pop();
+			/* we have been assigned. Get the details of the function. */
+			/* this must be done in a mutex to make sure two threads don't
+			 * start to run the same function, if alib_go is called rapidly
+			 * in succession */
+			func = impl->func_list.front();
+			impl->func_list.pop();
+			arg  = impl->arg_list.front();
+			impl->arg_list.pop();
+
+			/* Capture if function list is empty with mutex locked.
+			 * It doesn't matter if a function is added between this check
+			 * and the notification.
+			 */
+			if(impl->func_list.empty())
+			{
+				func_list_empty = true;
+			}
+		}
 		
 		/* now run the function */
 		func(arg);
 		
-		/* decrement the number of running functions, and signal if the
-		 * number is zero */
-		if(impl->func_list.empty())
+		/* Signal if the function list is now empty number is zero */
+		if(func_list_empty)
 		{
 			impl->idle_condition.notify_all();
 		}

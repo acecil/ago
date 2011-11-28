@@ -1,12 +1,12 @@
-/* COMPILE: -Wall alib/go.c -lpthread
+/* COMPILE: "cmake ." to generate Makefile, "make" to build ago library and ago_test test program. 
  */
 
-/* a test of the lightweight thread implementation in alib_go */
+/* a test of the lightweight thread implementation in ago */
 
 /** Quick documentation:
- * Call alib_thread_init() before doing anything,
- * alib_go() to start a lightweight thread,
- * and alib_thread_end() when you're finished.
+ * Create ago object before doing anything,
+ * ago::go() to start a lightweight thread,
+ * and destruct ago object when you're finished.
  */
  
 #include <stdio.h>

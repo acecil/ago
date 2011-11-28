@@ -1,3 +1,10 @@
+This is a C++11 implementation of the ago repo created by Alireza Nejati.
+
+The example compiles and runs with gcc-4.7 on Ubuntu. It compiles with VS2011 developer preview, but fails to run with what looks like a bug in the std::mutex object described elsewhere.
+
+
+The README from the C original C implementation is below:
+
 For a quick example on how to use this, see ago_test.c.
 
 I am aware that there are multiple implementations out there that try to do this. Mine is different, however:
