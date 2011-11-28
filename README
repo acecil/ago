@@ -1,6 +1,11 @@
-This is a C++11 implementation of the ago repo created by Alireza Nejati.
+This is a C++11 implementation by Andrew Gascoyne-Cecil of the ago repo created by Alireza Nejati.
 
-The example compiles and runs with gcc-4.7 on Ubuntu. It compiles with VS2011 developer preview, but fails to run with what looks like a bug in the std::mutex object described elsewhere.
+The example compiles and runs with gcc-4.7 on Ubuntu.
+
+It compiles with VS2011 developer preview, but fails to run with what looks like a bug in the std::mutex object described elsewhere.
+
+It would be nice to make this library accept arbitrary function signatures and arguments.
+
 
 
 The README from the C original C implementation is below:
