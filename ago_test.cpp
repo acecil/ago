@@ -9,26 +9,32 @@
  * and destruct ago object when you're finished.
  */
  
-#include <stdio.h>
+#include <iostream>
+#include <mutex>
 #include "ago.h"
 
-void worker(void *a)
+static std::mutex m;
+
+static void worker(void *a)
 {
-	printf("Worker #%d\n", *((int *)a));
+	std::lock_guard<std::mutex> lock(m);
+	std::cout << "Worker #" << *((int *)a) << std::endl;
 }
 
 int main()
 {
 	ago r(4);
-	int a[256];
+	int a[2048];
 	
-	for(int i = 0; i < 256; ++i)
+	for(int i = 0; i < 2048; ++i)
 	{
 		a[i]=i+1;
 		r.go(&worker,a+i);
 	}
 
 	r.wait();
+
+	std::cout << "after wait." << std::endl;
 
 	return 0;
 }

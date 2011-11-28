@@ -77,7 +77,10 @@ ago::ago(int max_conc)
 	}
 }
 
-/* waits until all threads are idle */
+/* waits until function list is empty
+ * this does not guarantee all functions have been executed,
+ * but they all will be executed once this function returns.
+ */
 void ago::wait()
 {
 	/* Atomically wait until the function list is empty. */
@@ -117,21 +120,22 @@ ago::~ago()
  * */
 void ago::go(void (*func)(void *), void *arg)
 {		
-	/* add function to stack */
+	/* add function to queue */
 	{
 		std::lock_guard<std::mutex> lock(impl->func_mutex);
 		impl->func_list.push(func);
 		impl->arg_list.push(arg);
 	}
 
-	/* Tell once thread to wake up and execute the function. */
+	/* Tell one thread to wake up and execute the function. */
 	impl->run_condition.notify_one();
 }
 
 /** Idling function.
-	* Designed to block (not do anything) until a function has been
-	* assigned to it.
-	* See description at top of file. */
+ * Designed to block (not do anything) until a function has been
+ * assigned to it.
+ * See description at top of file.
+ */
 void ago::static_idle(ago *obj)
 {
 	obj->idle();
@@ -158,7 +162,7 @@ void ago::idle()
 		
 			/* we have been assigned. Get the details of the function. */
 			/* this must be done in a mutex to make sure two threads don't
-			 * start to run the same function, if alib_go is called rapidly
+			 * start to run the same function, if ago::go is called rapidly
 			 * in succession */
 			func = impl->func_list.front();
 			impl->func_list.pop();
@@ -185,3 +189,4 @@ void ago::idle()
 		}
 	}
 };
+
