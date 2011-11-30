@@ -11,6 +11,7 @@
  
 #include <iostream>
 #include <mutex>
+#include <functional>
 #include "ago.h"
 
 static std::mutex m;
@@ -29,7 +30,7 @@ int main()
 	for(int i = 0; i < 2048; ++i)
 	{
 		a[i]=i+1;
-		r.go(&worker,a+i);
+		r.go(std::bind(&worker, a+i));
 	}
 
 	r.wait();

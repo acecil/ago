@@ -51,8 +51,7 @@ struct ago::ago_impl
 	std::list<std::thread*> thread_list;
 	
 	/* queue of function pointers */
-	std::queue<void (*)(void*)> func_list;
-	std::queue<void*> arg_list;
+	std::queue<std::function<void()>> func_list;
 	std::mutex func_mutex;
 
 	/* these help with ago::wait */
@@ -118,13 +117,12 @@ ago::~ago()
 
 /** Execute function func in parallel.
  * */
-void ago::go(void (*func)(void *), void *arg)
+void ago::go(std::function<void()> func)
 {		
 	/* add function to queue */
 	{
 		std::lock_guard<std::mutex> lock(impl->func_mutex);
 		impl->func_list.push(func);
-		impl->arg_list.push(arg);
 	}
 
 	/* Tell one thread to wake up and execute the function. */
@@ -142,8 +140,7 @@ void ago::static_idle(ago *obj)
 }
 void ago::idle()
 {
-	void (*func)(void*);
-	void *arg;
+	std::function<void()> func;
 	
 	/* idling loop */
 	while(1){
@@ -166,8 +163,6 @@ void ago::idle()
 			 * in succession */
 			func = impl->func_list.front();
 			impl->func_list.pop();
-			arg  = impl->arg_list.front();
-			impl->arg_list.pop();
 
 			/* Capture if function list is empty with mutex locked.
 			 * It doesn't matter if a function is added between this check
@@ -180,7 +175,7 @@ void ago::idle()
 		}
 		
 		/* now run the function */
-		func(arg);
+		func();
 		
 		/* Signal if the function list is now empty number is zero */
 		if(func_list_empty)

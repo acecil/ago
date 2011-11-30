@@ -2,6 +2,7 @@
 #define AGO_H
 
 #include <memory>
+#include <functional>
 
 class ago
 {
@@ -9,7 +10,7 @@ public:
 	explicit ago(int max_conc);
 	virtual ~ago();
 
-	void go(void (*f)(void*), void *arg);
+	void go(std::function<void()> func);
 	void wait();
 
 private:
