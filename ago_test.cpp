@@ -16,10 +16,10 @@
 
 static std::mutex m;
 
-static void worker(void *a)
+static void worker(int *a)
 {
 	std::lock_guard<std::mutex> lock(m);
-	std::cout << "Worker #" << *((int *)a) << std::endl;
+	std::cout << "Worker #" << *a << std::endl;
 }
 
 int main()
@@ -29,8 +29,8 @@ int main()
 	
 	for(int i = 0; i < 2048; ++i)
 	{
-		a[i]=i+1;
-		r.go(std::bind(&worker, a+i));
+		a[i] = i + 1;
+		r.go(std::bind(&worker, a + i));
 	}
 
 	r.wait();
